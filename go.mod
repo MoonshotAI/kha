@@ -9,7 +9,7 @@ require (
 	github.com/tidwall/gjson v1.19.0
 	github.com/xtaci/smux/v2 v2.1.0
 	github.com/zalando/go-keyring v0.2.8
-	golang.org/x/mod v0.42.0
+	golang.org/x/mod v0.43.0
 	golang.org/x/term v0.47.0
 	gopkg.in/yaml.v3 v3.0.1
 )
