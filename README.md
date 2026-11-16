@@ -255,23 +255,10 @@ Most applications should use `kha.New`, which configures the default endpoint (`
 
 ```go
 // Reads KIMI_API_KEY when apiKey is empty.
-client, err := kha.New("",
-	kha.WithBaseURL("https://api.moonshot.cn"),
-	kha.WithMaxRetries(3),
-)
+client, err := kha.New("")
 ```
 
-If you need full manual control without product defaults or environment variable fallbacks, use the generated constructor `kha.NewClient`:
-
-```go
-client, err := kha.NewClient("https://api.moonshot.cn",
-	kha.WithBearerToken("sk-..."),
-	kha.WithHeader("Kimi-Api-Version", kha.DefaultAPIVersion),
-	kha.WithMaxRetries(0),
-)
-```
-
-> **Tip:** Avoid setting a short global `http.Client.Timeout` when passing `kha.WithHTTPClient(hc)`. A client-wide timeout also applies to long-lived SSE event streams and file downloads. Instead, use `context.WithTimeout` on individual requests.
+For full manual control without product defaults, use the generated constructor `kha.NewClient`; see [pkg.go.dev](https://pkg.go.dev/github.com/MoonshotAI/kha) for the option vocabulary. Prefer `context.WithTimeout` on individual requests over a short global `http.Client.Timeout`, which would also cut long-lived SSE streams.
 
 ### Requests, `HTTPResult[T]`, and Optional Fields
 
@@ -286,27 +273,7 @@ fmt.Println("Agent:", result.Body.Name)
 fmt.Println("Status:", result.StatusCode, "Request ID:", result.Header.Get("Msh-Request-Id"))
 ```
 
-- **Two-state optional fields** (`*T`): Fields that can be omitted or set use pointers. In Go 1.26+, you can pass `new("value")` directly without a helper variable.
-- **Three-state patch fields** (`kha.Optional[T]`): Update fields where omitting a field ("leave unchanged"), sending `null` ("clear the value"), and sending a concrete value have distinct meanings use `kha.Optional[T]`. Construct them with `kha.NewOptional(v)`, and call `SetNull()` to send an explicit `null`.
-- **Downloads and streams**: File and bundle download methods return `kha.HTTPResult[io.ReadCloser]`. Always `Close()` `result.Body` when finished.
-
-### Per-call Options
-
-Every generated method ends with `opts ...kha.ClientOption`. Options passed to one call apply to that call only; the shared client is never modified, so it stays safe for concurrent use:
-
-```go
-result, err := client.Sessions.Create(ctx, req,
-	kha.WithHeader("X-Correlation-Id", correlationID),
-	kha.WithRequestHook(func(r *http.Request, body []byte) error {
-		r.Header.Set("X-Signature", sign(body))
-		return nil
-	}),
-)
-```
-
-- `kha.WithHeader` replaces the client's default value for the same header on this call.
-- `kha.WithRequestHook` runs after the URL, credentials, and headers are assembled and receives a copy of the encoded body. With `kha.New`, retries happen below the hook, so it runs once per logical call and every retry reuses the same request.
-- Deadlines belong to `ctx`, and response metadata is already in `HTTPResult`. Contract fields are set on the request struct rather than by rewriting the body.
+Optional fields use pointers (`*T`); three-state patch fields use `kha.Optional[T]` (`kha.NewOptional(v)`, `SetNull()` to clear). Downloads return `kha.HTTPResult[io.ReadCloser]` — `Close()` the body when finished.
 
 ### Pagination (`List*` vs. `All*`)
 
@@ -324,7 +291,6 @@ for agent, err := range client.Agents.All(ctx, kha.ListAgentsRequest{}) {
 }
 ```
 
-Breaking out of the `for` loop immediately stops further page requests. If a page fails, the error is yielded once and iteration ends.
 
 ### Live Event Streaming and Recovery
 
@@ -334,29 +300,15 @@ Choose your event reader based on whether you want a finite snapshot or a live f
 - **Live SSE stream (`Sessions.Events` / `Sessions.ThreadEvents`)**: Replays retained history by default and stays open to stream new events in real time:
 
 ```go
-stream := client.Sessions.Events(ctx, "sesn_...",
-	kha.WithCursor(kha.CursorNow), // Or omit to replay retained history first
-	kha.WithDeltas(true),          // Opt into live agent.delta token previews
-	kha.WithOnRecovery(func() {
-		// Called if an expired cursor required history backfill;
-		// discard any buffered agent.delta previews before this point.
-	}),
-)
-
-for event, err := range stream {
+for event, err := range client.Sessions.Events(ctx, "sesn_...", kha.WithDeltas(true)) {
 	if err != nil {
 		return err
 	}
-	switch {
-	case event.AsAgentDeltaEvent() != nil:
-		// Render incremental preview chunks
-	case event.AsAgentMessageEvent() != nil:
-		// Authoritative completed message
-	}
+	// Handle agent.delta previews, agent.message, tool calls, status changes.
 }
 ```
 
-`Sessions.Events` handles SSE heartbeats, control frames, payload-ID deduplication (up to 4,096 recent IDs), automatic `Last-Event-ID` reconnects with exponential backoff, and expired-cursor recovery (anchoring at `cursor=now`, backfilling missed history, and resuming live delivery without a gap). Cancel `ctx` or `break` out of the loop when your application is done listening.
+The stream handles heartbeats, deduplication, `Last-Event-ID` reconnects, and expired-cursor history backfill automatically; see [pkg.go.dev](https://pkg.go.dev/github.com/MoonshotAI/kha) for the recovery options.
 
 ### Waiting for Asynchronous Work and Retry Safety
 
@@ -393,10 +345,7 @@ err := client.Sessions.RunTools(ctx, sessionID,
 - Each answer carries an `Idempotency-Key` derived from the call's event ID, so a lost write is retried without answering twice.
 - `RunTools` runs until `ctx` is done (returning `ctx.Err()`) or the stream, a confirmation handler, or a write fails. Without `WithToolConfirmation`, calls waiting for approval are left for another client.
 
-**How retries work in `kha.New`:**
-
-- **Safe reads**: `GET` and `HEAD` requests automatically retry transient network errors, `429 Too Many Requests` (honoring `Retry-After`), and `5xx` responses—**except** `WorkItems.Poll` (claiming a queue item is stateful, so a blind retry could claim a second item), file downloads, and SSE streams (which use cursor-based recovery instead).
-- **Idempotent writes**: Supported JSON `POST`/`PATCH` endpoints are retried only when you set `IdempotencyKey: new("your-uuid")` on the request struct. The SDK never invents idempotency keys on your behalf, and never replays multipart uploads (`kha.File`). If one of those retries receives `409 Conflict`, the original request with the same key is still running, so the SDK backs off and retries until the server replays the stored response; a `409` on the first attempt is returned immediately.
+Retry behavior for `kha.New` clients (safe reads, idempotent writes, in-flight 409 replay) is documented on [pkg.go.dev](https://pkg.go.dev/github.com/MoonshotAI/kha).
 
 ### Error Handling
 
@@ -444,80 +393,24 @@ client, err := kha.New("", kha.WithHTTPClient(&http.Client{
 }))
 ```
 
-For logging, metrics, or other response-side behavior, wrap the transport with your own `http.RoundTripper`. With `kha.New`, the product retry policy sits above your transport, so the wrapper observes each individual attempt:
-
-```go
-type logTransport struct{ next http.RoundTripper }
-
-func (t logTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	start := time.Now()
-	resp, err := t.next.RoundTrip(req)
-	if err == nil {
-		log.Printf("%s %s -> %d in %s (request id: %s)", req.Method, req.URL.Path,
-			resp.StatusCode, time.Since(start), resp.Header.Get("Msh-Request-Id"))
-	}
-	return resp, err
-}
-
-client, err := kha.New("", kha.WithHTTPClient(&http.Client{
-	Transport: logTransport{next: http.DefaultTransport},
-}))
-```
-
-`kha.New` copies the `http.Client` you pass and never mutates it. Responses that do not match the API contract return `*kha.UnexpectedResponseError`, which keeps up to 1 MiB of the raw body for diagnosis.
+For logging, metrics, or other response-side behavior, wrap the transport with your own `http.RoundTripper`; `kha.New` copies the `http.Client` you pass and never mutates it.
 
 ### Embedding a Self-Hosted Worker
 
-`kha worker poll` is a thin wrapper over the public [`worker`](worker/) and [`tools`](tools/) packages. Import them to run the same lease and write-back loop inside your own process, or implement `tools.Executor` to replace the built-in sandbox tools:
-
-```go
-pollClient, err := kha.NewPollClient(baseURL, workKey, kha.WithHTTPClient(tracedClient))
-poller, err := worker.NewPoller(worker.PollConfig{
-	BaseURL:       baseURL,
-	PollClient:    pollClient,
-	ClientOptions: []kha.ClientOption{kha.WithHTTPClient(tracedClient)}, // per-work Session clients
-	EnvironmentID: environmentID,
-	WorkerID:      worker.NewWorkerID(),
-	Executor:      tools.NewExecutor(4 * time.Minute),
-	Workdir:       "/srv/agent-work",
-})
-err = poller.Run(ctx)
-```
-
-Worker log records carry `environment_id` and `worker_id`, and records about a work item add `work_item_id`, `session_id`, and `generation`, matching the identifiers the platform shows for a lease. `kha worker poll` and `kha worker run` write them to stderr as `key=value` text by default; pass `--log-format json` for one JSON object per line.
-
-`tools.NewExecutor` runs the sandbox side of both built-in toolsets: `read_file`, `write_file`, `edit_file`, `shell`, `todo_read`, and `todo_write` for `default_toolset_20260901`, and `read`, `write`, `edit`, `bash`, `glob`, and `grep` for `default_toolset_20261101`. `glob` and `grep` call [ripgrep](https://github.com/BurntSushi/ripgrep), so install `rg` on the worker host. Web search, web fetch, artifacts, MCP, and orchestration tools always run on the platform.
+The `worker` and `tools` packages let you run a self-hosted environment worker in-process instead of shelling out to `kha worker poll`. See the [self-hosted worker guide](https://platform.kimi.com/docs/hosted-agents/kha) and [pkg.go.dev](https://pkg.go.dev/github.com/MoonshotAI/kha) for the poll/run lifecycle.
 
 ### Verifying Trigger Webhooks
 
-When a Trigger is configured with a webhook notification URL, `kha.UnwrapWebhook` verifies an incoming delivery against the `webhook_secret` stored in your Vault and decodes it into a typed `*kha.TriggerWebhookEvent`. Pass the raw request body, because the signature covers the exact bytes:
+Trigger webhook notifications are signed with the standard-webhooks HMAC-SHA256 scheme using the Vault's `webhook_secret`. Verify with the raw request body:
 
 ```go
-func handleTriggerWebhook(w http.ResponseWriter, r *http.Request) {
-	rawBody, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "read body", http.StatusBadRequest)
-		return
-	}
-	event, err := kha.UnwrapWebhook(webhookSecret, r.Header, rawBody)
-	if err != nil {
-		// *kha.WebhookVerificationError for a bad signature or a stale timestamp.
-		http.Error(w, "invalid webhook", http.StatusUnauthorized)
-		return
-	}
-	switch event.Data.Type {
-	case kha.TriggerWebhookEventTypeTriggerRunFailed:
-		// event.Data.ID is the TriggerRun ID; fetch it for the error details.
-	case kha.TriggerWebhookEventTypeTriggerPaused:
-		// event.Data.ID is the Trigger ID; fetch it for paused_reason.
-	}
-	w.WriteHeader(http.StatusNoContent)
+event, err := kha.VerifyWebhookSignature(secret, body, r.Header)
+if err != nil {
+	// Reject the request.
 }
 ```
 
-- The verifier checks the HMAC-SHA256 signature against all `v1` entries in `Webhook-Signature` (supporting zero-downtime secret rotation) and enforces a ±5-minute timestamp replay window.
-- Payloads are thin references: fetch the TriggerRun or Trigger by `event.Data.ID` for current state. Delivery is at-least-once, so deduplicate by `event.ID`, and tolerate event types you do not recognize.
-- `kha.VerifyWebhookSignature` checks a signature without decoding. `kha.ParseWebhookEvent` decodes without verifying, for bodies already verified elsewhere (for example by a gateway) and for tests.
+`kha.ParseWebhookEvent` decodes an already-verified payload into a typed `TriggerWebhookEvent`.
 
 ---
 
@@ -556,8 +449,8 @@ kha sessions list --all -o json
 kha sessions list --all -o jsonl | jq -c 'select(.status == "idle")'
 kha sessions list --all -o jsonl --transform id -r
 
-# Filter on the server: RFC 3339 time ranges, official resources, categories, and owners
-kha sessions list --updated-at-gte 2026-08-01T00:00:00Z --all -o json
+# Filter recent items and official resources
+kha sessions list --since 24h --all -o json
 kha agents list --official-only
 kha skills list --category engineering
 kha triggers list --agent "$AGENT_ID"
@@ -590,25 +483,7 @@ kha environments create --name analysis \
   --pip pandas==2.3.2 --setup-script-file setup.sh
 ```
 
-When a body grows past a few fields, write it as one JSON/YAML document and pipe it through `--file` instead — field flags and `--file` are not mixed on the same command:
-
-```sh
-# Read a full configuration from a YAML/JSON file or stdin
-kha agents create --file agent.yaml
-jq -n '{title: "Updated title"}' | kha sessions update "$SESSION_ID" --file -
-
-# Pass multi-line prompt or message content from a file or stdin
-kha agents update "$AGENT_ID" --version "$VERSION" --system-file system.md
-kha sessions send "$SESSION_ID" --text-file prompt.md --wait
-
-# Send rich content blocks (e.g. a file reference) as a full user.message event
-kha sessions send "$SESSION_ID" --wait \
-  --event '{type: user.message, data: {content: [{type: text, text: "summarize this CSV"}, {type: file, file_id: "file_xxx", mime_type: text/csv, title: data.csv, path: upload/data.csv}]}}'
-
-# Pass secrets via stdin so they never appear in shell history or `ps`
-kha login --api-key-stdin < api-key.txt
-kha vaults credentials create "$VAULT_ID" --type environment_variable --name GITHUB_TOKEN --value-stdin
-```
+For larger bodies, pipe one JSON/YAML document through `--file` (`kha agents create --file agent.yaml`); field flags and `--file` are not mixed. Multi-line content reads from a file or stdin via `*-file` flags (`--system-file`, `--text-file`), secrets go through stdin (`kha login --api-key-stdin`, `--value-stdin`), and rich content blocks go through `sessions send --event` — see `kha docs` for the full input vocabulary.
 
 ### Exit Codes
 
@@ -632,20 +507,7 @@ Restart or refresh your coding assistant session after installation. Running `kh
 
 ### Environment Variables and Profiles
 
-| Variable | Description |
-| --- | --- |
-| `KIMI_API_KEY` | API Key used when `--api-key` is not set (ideal for CI and headless servers). |
-| `KHA_BASE_URL` | Override the API base URL (`https://api.moonshot.cn` by default). |
-| `KHA_PROFILE` | Select a named profile saved by `kha login`. |
-| `KHA_EDITOR` | Editor command for `kha <resource> edit` (falls back to `$VISUAL`, `$EDITOR`, then `vi`). |
-| `KHA_NO_UPDATE_CHECK=1` | Disable background CLI update notices (automatically disabled in CI). |
-| `KHA_RELEASE_BASE_URL` | Override the release download mirror for `install.sh`, `install.ps1`, and `kha upgrade`. |
-
-**Credential precedence:**
-
-- By default, KHA resolves `--api-key` > `KIMI_API_KEY` > the selected profile's key, and `--base-url` > `KHA_BASE_URL` > the selected profile's base URL > `https://api.moonshot.cn`.
-- When you pass `--profile <name>` explicitly on a command, KHA uses that profile's saved credentials and endpoint, ignoring `KIMI_API_KEY` and `KHA_BASE_URL` so ambient environment variables do not leak across profiles.
-- Without `--profile` or `KHA_PROFILE`, the config's current profile applies. `kha profile list` shows saved profiles, marks the current one, and reports where each key is stored without printing it; `kha profile use <name>` switches the current profile.
+Connection settings resolve as `--api-key` > `KIMI_API_KEY` > profile, and `--base-url` > `KHA_BASE_URL` > profile > `https://api.moonshot.cn`; the active profile comes from `--profile`, `KHA_PROFILE`, or the config's `current` entry (`kha profile list` / `kha profile use`). See `kha docs` for the full precedence rules.
 
 ---
 

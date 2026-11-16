@@ -91,6 +91,28 @@
 // across reconnects, and sends each answer with an Idempotency-Key derived
 // from the call's event ID.
 //
+// # Retry Policy
+//
+// Clients constructed with [New] apply a product retry policy on top of the
+// generated transport (clients built with [NewClient] retry nothing unless
+// you configure it):
+//
+//   - Safe reads: GET and HEAD requests retry transient network errors, 429
+//     (honoring Retry-After), and 5xx responses — except [WorkItemsClient.Poll]
+//     (claiming a queue item is stateful), file downloads, and SSE streams
+//     (which recover through cursors instead).
+//   - Idempotent writes: JSON POST/PATCH endpoints retry only when the
+//     request struct carries an IdempotencyKey; the SDK never invents keys
+//     and never replays multipart uploads. A retried write that receives 409
+//     Conflict means the original request with the same key is still in
+//     flight, so the SDK backs off and retries until the server replays the
+//     stored response; a 409 on the first attempt is a real conflict and
+//     surfaces immediately.
+//
+// Deadlines belong to the request context: pass ctx deadlines rather than a
+// short http.Client.Timeout, which would also cut long-lived SSE streams and
+// file downloads.
+//
 // # Error Handling and Webhooks
 //
 // Non-2xx responses declared in the OpenAPI contract decode into *[Error]

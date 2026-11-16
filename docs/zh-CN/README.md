@@ -291,27 +291,7 @@ fmt.Println("Agent:", result.Body.Name)
 fmt.Println("Status:", result.StatusCode, "Request ID:", result.Header.Get("Msh-Request-Id"))
 ```
 
-- **两态可选字段**（`*T`）：只需区分「未设置」与「有值」的字段使用指针；在 Go 1.26+ 中，可以直接使用内置的 `new("value")` 构造指针。
-- **三态更新字段**（`kha.Optional[T]`）：在部分更新（PATCH）请求中，需要同时区分「缺省不修改」「显式传 `null` 清空」和「设置为具体值」时使用 `kha.Optional[T]`，可通过 `kha.NewOptional(v)` 设置具体值，并调用 `SetNull()` 显式传入 `null`。
-- **文件下载**：下载接口返回 `kha.HTTPResult[io.ReadCloser]`，读取完毕后请务必调用 `result.Body.Close()`。
-
-### 单次请求选项
-
-所有生成方法都以 `opts ...kha.ClientOption` 结尾。传给某次调用的选项只作用于这一次调用，共享 client 不会被修改，因此仍可安全地并发使用：
-
-```go
-result, err := client.Sessions.Create(ctx, req,
-	kha.WithHeader("X-Correlation-Id", correlationID),
-	kha.WithRequestHook(func(r *http.Request, body []byte) error {
-		r.Header.Set("X-Signature", sign(body))
-		return nil
-	}),
-)
-```
-
-- `kha.WithHeader` 在本次调用中替换 client 同名 Header 的默认值。
-- `kha.WithRequestHook` 在 URL、凭据与请求头装配完成后执行，并拿到已编码 body 的副本。使用 `kha.New` 时重试发生在 Hook 之下，因此每次逻辑调用只执行一次，每次重试复用同一份请求。
-- 超时通过 `ctx` 控制，响应元数据已在 `HTTPResult` 中；契约字段通过请求结构体设置，不通过改写 body 绕过契约。
+可选字段使用指针（`*T`）；需要区分「缺省」「显式 `null`」「具体值」的三态更新字段使用 `kha.Optional[T]`（`kha.NewOptional(v)` 设值，`SetNull()` 置空）。下载接口返回 `kha.HTTPResult[io.ReadCloser]`，读完请 `Close()`。
 
 ### 分页查询（`List*` 与 `All*`）
 
@@ -333,36 +313,19 @@ for agent, err := range client.Agents.All(ctx, kha.ListAgentsRequest{}) {
 
 ### 实时事件流与断线自动恢复
 
-根据业务场景选择有限历史遍历或实时事件流：
-
-- **读取有限历史（`Sessions.AllEvents` / `Sessions.AllThreadEvents`）**：按从旧到新的顺序遍历已持久化的历史事件，读完最后一页后自动结束。
-- **订阅实时事件流（`Sessions.Events` / `Sessions.ThreadEvents`）**：默认先重放保留的历史事件，随后保持 SSE 连接实时推送新事件：
+- **有限历史**（`Sessions.AllEvents` / `Sessions.AllThreadEvents`）：从旧到新遍历已持久化事件，翻完即停。
+- **实时 SSE 流**（`Sessions.Events` / `Sessions.ThreadEvents`）：默认先回放保留历史，再持续推送新事件：
 
 ```go
-stream := client.Sessions.Events(ctx, "sesn_...",
-	kha.WithCursor(kha.CursorNow), // 仅订阅未来的新事件；省略则先重放保留历史
-	kha.WithDeltas(true),          // 开启 agent.delta 增量流式文本预览
-	kha.WithOnRecovery(func() {
-		// 当 cursor 过期触发历史回补完成时回调；
-		// 调用方应在此处丢弃此前缓存的半截 agent.delta 预览。
-	}),
-)
-
-for event, err := range stream {
+for event, err := range client.Sessions.Events(ctx, "sesn_...", kha.WithDeltas(true)) {
 	if err != nil {
 		return err
 	}
-	switch {
-	case event.AsAgentDeltaEvent() != nil:
-		// 渲染流式增量片段
-	case event.AsAgentMessageEvent() != nil:
-		// 处理完整持久化的权威消息
-	}
+	// 处理 agent.delta 预览、agent.message、工具调用与状态变化。
 }
 ```
 
-`Sessions.Events` 在内部自动处理 SSE 心跳、控制帧、基于事件 payload ID 的去重（最近 4,096 条）、基于 `Last-Event-ID` 的指数退避重连，以及 cursor 过期后的无缝恢复（先建立 `cursor=now` 实时连接，再回补缺失的历史事件，最后继续读取实时流）。
-当应用不再需要监听时，直接 `break` 或取消 `ctx` 即可。
+事件流自动处理心跳、去重、`Last-Event-ID` 断线重连与过期 cursor 的历史回补；恢复选项见 [pkg.go.dev](https://pkg.go.dev/github.com/MoonshotAI/kha)。
 
 ### 异步等待器（Waiter）与安全重试
 
@@ -399,10 +362,7 @@ err := client.Sessions.RunTools(ctx, sessionID,
 - 每次回写都带有由调用事件 ID 派生的 `Idempotency-Key`，写入丢失响应时可以安全重试，不会重复回答。
 - `RunTools` 持续运行到 `ctx` 结束（返回 `ctx.Err()`），或事件流、确认回调、回写出错为止；未配置 `WithToolConfirmation` 时，等待确认的调用留给其他客户端处理。
 
-**`kha.New` 的安全重试边界：**
-
-- **只读请求**：`GET` 和 `HEAD` 请求遇到瞬态网络故障、`429 Too Many Requests`（自动遵循 `Retry-After`）或 `5xx` 时会自动重试——但排除 `WorkItems.Poll`（拉取工作队列具有认领副作用，盲目重试可能多认领一条任务）、文件下载流以及由事件迭代器自行管理重连的 SSE 流。
-- **幂等写请求**：受支持的 JSON `POST`/`PATCH` 接口仅在调用方显式传入 `IdempotencyKey: new("your-uuid")` 时才会自动重试；SDK 绝不会自行生成幂等键，也不会自动重放带文件流（`kha.File`）的上传请求。重试请求收到 `409 Conflict` 表示同一个 key 的原请求仍在执行，SDK 会退避后继续重试，直到服务端重放已存储的响应；首个请求就收到的 `409` 会立即返回。
+重试机制（安全读、幂等写、in-flight 409 重放）见 [pkg.go.dev](https://pkg.go.dev/github.com/MoonshotAI/kha)。
 
 ### 错误处理
 
@@ -475,56 +435,20 @@ client, err := kha.New("", kha.WithHTTPClient(&http.Client{
 
 ### 嵌入 self-hosted worker
 
-`kha worker poll` 是公开包 [`worker`](../../worker/) 与 [`tools`](../../tools/) 的薄封装。导入它们即可在自己的进程里运行同一套租约与回写逻辑，也可以实现 `tools.Executor` 替换内置沙箱工具：
-
-```go
-pollClient, err := kha.NewPollClient(baseURL, workKey, kha.WithHTTPClient(tracedClient))
-poller, err := worker.NewPoller(worker.PollConfig{
-	BaseURL:       baseURL,
-	PollClient:    pollClient,
-	ClientOptions: []kha.ClientOption{kha.WithHTTPClient(tracedClient)}, // 每个 work 的 Session client
-	EnvironmentID: environmentID,
-	WorkerID:      worker.NewWorkerID(),
-	Executor:      tools.NewExecutor(4 * time.Minute),
-	Workdir:       "/srv/agent-work",
-})
-err = poller.Run(ctx)
-```
-
-worker 日志固定带 `environment_id` 与 `worker_id`，与某个 work 相关的记录再带上 `work_item_id`、`session_id` 与 `generation`，与平台展示的租约标识一致。`kha worker poll` 与 `kha worker run` 默认以 `key=value` 文本写到 stderr，传 `--log-format json` 则每行输出一个 JSON 对象。
-
-`tools.NewExecutor` 覆盖两个内置 toolset 的沙箱侧工具：`default_toolset_20260901` 的 `read_file`、`write_file`、`edit_file`、`shell`、`todo_read` 与 `todo_write`，以及 `default_toolset_20261101` 的 `read`、`write`、`edit`、`bash`、`glob` 与 `grep`。`glob` 与 `grep` 调用 [ripgrep](https://github.com/BurntSushi/ripgrep)，执行机器需要安装 `rg`。网页检索与抓取、产物保存、MCP 与编排类工具始终由平台执行。
+`worker` 与 `tools` 包支持在进程内运行自托管环境 worker，替代 shell 调用 `kha worker poll`。poll/run 生命周期见 [pkg.go.dev](https://pkg.go.dev/github.com/MoonshotAI/kha)。
 
 ### 校验 Trigger Webhook 签名
 
-当 Trigger 配置了 Webhook 通知地址时，`kha.UnwrapWebhook` 使用保存在 Vault 中的 `webhook_secret` 校验投递真伪，并解码为类型化的 `*kha.TriggerWebhookEvent`。签名覆盖原始字节，必须传入未经改动的请求 body：
+Trigger webhook 通知使用 Vault 中 `webhook_secret` 按 standard-webhooks HMAC-SHA256 签名。用原始请求体验签：
 
 ```go
-func handleTriggerWebhook(w http.ResponseWriter, r *http.Request) {
-	rawBody, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "read body", http.StatusBadRequest)
-		return
-	}
-	event, err := kha.UnwrapWebhook(webhookSecret, r.Header, rawBody)
-	if err != nil {
-		// 签名或时间戳校验失败（*kha.WebhookVerificationError）
-		http.Error(w, "invalid webhook", http.StatusUnauthorized)
-		return
-	}
-	switch event.Data.Type {
-	case kha.TriggerWebhookEventTypeTriggerRunFailed:
-		// event.Data.ID 为触发器运行 ID，查询它获取失败详情。
-	case kha.TriggerWebhookEventTypeTriggerPaused:
-		// event.Data.ID 为触发器 ID，查询它获取 paused_reason。
-	}
-	w.WriteHeader(http.StatusNoContent)
+event, err := kha.VerifyWebhookSignature(secret, body, r.Header)
+if err != nil {
+	// 拒绝该请求。
 }
 ```
 
-- 校验遵循 standard-webhooks 规范，验证 HMAC-SHA256 签名（支持密钥轮换期间存在多个 `v1` 签名），并强制校验 ±5 分钟的时间戳防重放窗口。
-- 负载只携带引用：按 `event.Data.ID` 查询触发器运行或触发器以获取当前状态。投递为至少一次，请按 `event.ID` 去重，并容忍不认识的事件类型。
-- `kha.VerifyWebhookSignature` 只校验签名不解码；`kha.ParseWebhookEvent` 只解码不校验，用于已在别处（如网关）验签的正文和测试。
+已验签的 payload 可用 `kha.ParseWebhookEvent` 解码为类型化的 `TriggerWebhookEvent`。
 
 ---
 
@@ -564,7 +488,7 @@ kha sessions list --all -o jsonl | jq -c 'select(.status == "idle")'
 kha sessions list --all -o jsonl --transform id -r
 
 # 服务端过滤：RFC 3339 时间范围、仅官方资源、分类与归属
-kha sessions list --updated-at-gte 2026-08-01T00:00:00Z --all -o json
+kha sessions list --since 24h --all -o json
 kha agents list --official-only
 kha skills list --category engineering
 kha triggers list --agent "$AGENT_ID"
@@ -640,20 +564,7 @@ kha install-skill -g   # 安装到当前用户：~/.agents/skills/kha/
 
 ### 环境变量与 Profile 优先级
 
-| 环境变量 | 用途 |
-| --- | --- |
-| `KIMI_API_KEY` | API 凭据（适用于 CI 流水线和无系统钥匙串的机器）。 |
-| `KHA_BASE_URL` | 覆盖 API 服务地址（默认为 `https://api.moonshot.cn`）。 |
-| `KHA_PROFILE` | 选择已通过 `kha login` 保存的客户端 profile。 |
-| `KHA_EDITOR` | 指定 `kha <resource> edit` 使用的编辑器（依次回退至 `$VISUAL`、`$EDITOR`、`vi`）。 |
-| `KHA_NO_UPDATE_CHECK=1` | 关闭后台版本更新提示（CI 环境默认自动关闭）。 |
-| `KHA_RELEASE_BASE_URL` | 覆盖安装脚本与 `kha upgrade` 使用的下载镜像源。 |
-
-**连接配置解析优先级：**
-
-- 默认情况下，API Key 按 `--api-key` > `KIMI_API_KEY` > 当前 profile 密钥解析；服务地址按 `--base-url` > `KHA_BASE_URL` > 当前 profile 地址 > `https://api.moonshot.cn` 解析。
-- 当命令显式传入 `--profile <name>` 时，CLI 严格使用该 profile 保存的凭据与服务地址，忽略环境变量 `KIMI_API_KEY` 和 `KHA_BASE_URL`，防止环境变量意外串入指定 profile。
-- 未传 `--profile` 且未设置 `KHA_PROFILE` 时使用配置中的当前 profile。`kha profile list` 列出已保存的 profile，标出当前 profile，并只显示密钥的存放位置而不打印密钥；`kha profile use <name>` 切换当前 profile。
+连接配置按 `--api-key` > `KIMI_API_KEY` > profile、`--base-url` > `KHA_BASE_URL` > profile > `https://api.moonshot.cn` 解析；生效 profile 由 `--profile`、`KHA_PROFILE` 或配置文件的 `current` 条目决定（`kha profile list` / `kha profile use`）。完整优先级规则见 `kha docs`。
 
 ---
 
