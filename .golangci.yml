@@ -1,0 +1,50 @@
+# SDK and CLI share this module's lint configuration.
+# depguard keeps SDK packages stdlib-only; internal/cli may use CLI dependencies.
+# The monorepo pins golangci-lint in the root mise.toml and mise.lock.
+
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - depguard # the SDK module stays free of third-party imports.
+    - errcheck
+    - govet
+    - ineffassign
+    - misspell
+    - modernize # the go-fix analyzer family as a linter; keeps the tree at Go 1.27 idioms.
+    - staticcheck
+    - unused
+  settings:
+    depguard:
+      rules:
+        sdk-stdlib-only:
+          # Matches every analyzed file of the module EXCEPT internal/cli/ — the SDK
+          # packages (root package + internal/) import the standard library only.
+          # internal/cli/ carries the CLI's own
+          # dependencies (cobra, pflag, yaml, gjson) by policy.
+          files:
+            - ${config-path}/**
+            - "!${config-path}/internal/cli/**"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/MoonshotAI/kha
+  exclusions:
+    # Lint generated code too: generated files at the package root are part of the
+    # zero-dependency promise, so depguard must see them. Findings are fixed upstream.
+    generated: disable
+
+issues:
+  # Report every occurrence, not a sample (defaults cap identical texts at 3
+  # and per-linter totals at 50).
+  max-same-issues: 0
+  max-issues-per-linter: 0
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

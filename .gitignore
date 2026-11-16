@@ -1,0 +1,13 @@
+# Go build artifacts
+bin/
+dist/
+*.test
+*.out
+coverage.*
+
+# `go build ./cmd/kha` drops the binary at the repository root
+# (`go build ./...` discards them instead)
+/kha
+
+# Vendored dependencies (not used today; keep out if ever introduced)
+vendor/
