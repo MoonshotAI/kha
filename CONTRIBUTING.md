@@ -1,10 +1,6 @@
 # Contributing to KHA
 
-Thank you for your interest in contributing to **KHA** (`github.com/MoonshotAI/kha`), the official Go SDK and CLI for Kimi Hosted Agents!
-
-This repository is completely **self-contained**: all generated OpenAPI protocol code (`*.gen.go`) is committed directly to the tree, so you only need a standard Go toolchain to build, test, and work on the project locally.
-
----
+All generated OpenAPI protocol code (`*.gen.go`) is committed directly to the tree, so you only need a standard Go toolchain to build, test, and work on the project locally.
 
 ## Local Development Setup
 
@@ -56,13 +52,10 @@ golangci-lint run ./...
 
 1. **Never edit `*.gen.go` files by hand**:
    Protocol models and base client methods are generated from the Kimi Hosted Agents OpenAPI contract. If a change requires updating a generated model or endpoint, open an issue to discuss the contract change with maintainers.
-2. **Extend generated types directly**:
-   Handwritten SDK capabilities—such as `All*` pagination iterators, `Sessions.Events` SSE recovery, and `WaitFor*` resource waiters—are implemented as methods on the generated client types (`AgentsClient`, `SessionsClient`, etc.) in the root package rather than wrapping them in a second client layer.
+2. **Extend generated types directly**: Handwritten SDK capabilities (`All*` pagination, `Sessions.Events` SSE recovery, `WaitFor*` waiters) are methods on the generated client types in the root package.
 3. **Zero external dependencies in the root SDK package**:
    The root `kha` package must depend only on the Go standard library and internal packages within this module. Third-party libraries (such as `cobra`, `gjson`, or keychain bindings) belong strictly under `internal/cli/` or `cmd/kha/`.
-4. **Preserve retry and idempotency guarantees**:
-   - `kha.New` configures the product retry policy (`kha.NewClient` provides raw protocol defaults).
-   - Never auto-generate `Idempotency-Key` headers on behalf of the caller, never replay multipart file uploads (`kha.File`), and never auto-retry `WorkItems.Poll` (where a duplicate request could claim a second work item).
+4. **Preserve retry and idempotency guarantees**: See [Compatibility Rules](#compatibility-rules) below.
 5. **Keep CLI streams and secrets clean**:
    - `stdout` is strictly for command data (`table`, `json`, `yaml`, or raw strings); progress messages, spinners, warnings, and errors must go to `stderr`.
    - Read secrets from `stdin` or files, never from command-line flags that expose values in shell history or `ps`, and strip untrusted terminal escape sequences from server-controlled error messages.
@@ -75,12 +68,12 @@ golangci-lint run ./...
 
 ## Compatibility Rules
 
-The platform evolves independently of released SDK and CLI binaries, so an older KHA must keep working against a newer server. Changes must preserve these rules:
+Changes must preserve these rules:
 
 - **Tolerate additions**: Unknown JSON object fields are ignored rather than rejected, and unknown event or union variants decode without error so callers can skip them. Required and non-null constraints that decoding depends on still apply.
 - **Validate only what decoding needs**: The client does not re-run server-side business validation. Range, length, or enum checks that the server owns are left to the server's `400` response.
-- **Reject only locally decidable CLI input**: The CLI rejects invalid flag combinations and malformed local files before sending a request (exit code `2`), but never guesses whether the server would accept a value.
-- **Never generate idempotency keys**: Only a key supplied by the caller enables write retries, and one logical call reuses that key for every attempt. The one exception is `Sessions.RunTools`, which derives each answer's key from the server-assigned event ID it answers, so the key identifies the answer rather than an attempt.
+- **Reject only locally decidable CLI input**: The CLI rejects invalid flag combinations and malformed local files before sending a request (exit code `2`).
+- **Never generate idempotency keys**: Only a key supplied by the caller enables write retries, and one logical call reuses that key for every attempt. The one exception is `Sessions.RunTools`, which derives each answer's key from the server-assigned event ID it answers.
 - **Never retry Poll automatically**: A lost `WorkItems.Poll` response must not trigger a second request that could claim another work item.
 - **Breaking changes go through the changelog**: Any change to exported Go signatures, CLI flags, or output formats is marked `(breaking change)` in [`CHANGELOG.md`](CHANGELOG.md) with migration steps.
 
@@ -98,9 +91,9 @@ For bug fixes, documentation improvements, and agreed-upon features:
 
 ### How External PRs Are Integrated and Credited
 
-Because KHA is developed alongside the Kimi Hosted Agents platform in an upstream monorepo, the `MoonshotAI/kha` repository is published as clean release snapshots rather than a commit-by-commit mirror:
+Because KHA is developed alongside the Kimi Hosted Agents platform, the `MoonshotAI/kha` repository is published as curated releases rather than a commit-by-commit mirror:
 
 1. **Review on GitHub**: Maintainers review your PR and run CI directly on GitHub.
-2. **Upstream sync**: Once approved, maintainers import your change into the upstream development repository and close the GitHub PR with a reference to the upstream change.
-3. **Included in the next release**: Your change ships in the very next `v0.X.Y` release snapshot (a PR is merged directly on GitHub only when the exact change is already present upstream).
-4. **Public attribution**: Because snapshot releases squash commit history, we explicitly credit contributors by GitHub handle (`@username`) with a link to your PR in both [`CHANGELOG.md`](CHANGELOG.md) and the GitHub Release notes.
+2. **Integration**: Once approved, maintainers import your change into the development repository and close the GitHub PR with a reference to the integrated change.
+3. **Included in the next release**: Your change ships in the very next `v0.X.Y` release (a PR is merged directly on GitHub only when the exact change is already integrated).
+4. **Public attribution**: We explicitly credit contributors by GitHub handle (`@username`) with a link to your PR in both [`CHANGELOG.md`](CHANGELOG.md) and the GitHub Release notes.

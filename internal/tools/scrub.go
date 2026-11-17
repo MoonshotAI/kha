@@ -3,16 +3,12 @@ package tools
 import "strings"
 
 // scrubEnvNames prevents platform and worker credentials from leaking through
-// shell child environments into model-visible output. Legacy worker environment
-// names are retained as defense in depth on shared hosts.
+// shell child environments into model-visible output.
 var scrubEnvNames = map[string]bool{
-	"KIMI_API_KEY":        true,
-	"LOOPY_WORK_KEY":      true,
-	"LOOPY_WORK_SECRET":   true,
-	"KHA_WORK_KEY":        true,
-	"KHA_WORK_SECRET":     true,
-	"LOOPY_SESSION_TOKEN": true,
-	"KHA_SESSION_TOKEN":   true,
+	"KIMI_API_KEY":      true,
+	"KHA_WORK_KEY":      true,
+	"KHA_WORK_SECRET":   true,
+	"KHA_SESSION_TOKEN": true,
 	// The value is only a path, but reading that file exposes swt-. It does not
 	// match the _WORK_SECRET suffix rule, so it must be listed explicitly.
 	"KHA_WORK_SECRET_FILE": true,

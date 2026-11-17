@@ -213,8 +213,8 @@ func TestNewAppliesProductDefaultsAndGeneratedOptions(t *testing.T) {
 }
 
 const (
-	agentA1   = `{"id":"a1","name":"helper","model":"kimi-k2","version":"1","created_at":"2026-10-22T01:00:00Z","updated_at":"2026-10-22T01:00:00Z","scope":"project"}`
-	agentA1V2 = `{"id":"a1","name":"helper-v2","model":"kimi-k2","version":"2","created_at":"2026-10-22T01:00:00Z","updated_at":"2026-10-22T02:00:00Z","scope":"project"}`
+	agentA1   = `{"id":"a1","name":"helper","model":"kimi-k3.1-pro","version":"1","created_at":"2026-10-22T01:00:00Z","updated_at":"2026-10-22T01:00:00Z","scope":"project"}`
+	agentA1V2 = `{"id":"a1","name":"helper-v2","model":"kimi-k3.1-pro","version":"2","created_at":"2026-10-22T01:00:00Z","updated_at":"2026-10-22T02:00:00Z","scope":"project"}`
 )
 
 // TestAgentsListVersions reads the Agent's immutable versions, newest first,
@@ -366,7 +366,7 @@ func TestProductRequestAndResponseMapping(t *testing.T) {
 			}
 		}},
 		{"create", "POST", "/v1/agents", `{"id":"a"}`, `"name":"helper"`, 201, func(t *testing.T, c *Client) {
-			r, e := c.Agents.Create(t.Context(), CreateAgentHTTPRequest{Body: &CreateAgentRequest{Name: "helper", Model: *NewModelRefString("kimi-k2")}})
+			r, e := c.Agents.Create(t.Context(), CreateAgentHTTPRequest{Body: &CreateAgentRequest{Name: "helper", Model: *NewModelRefString("kimi-k3.1-pro")}})
 			checkHTTPMetadata(t, r.StatusCode, r.Header, e, 201)
 			if r.Body.ID != "a" {
 				t.Fatal(r.Body)

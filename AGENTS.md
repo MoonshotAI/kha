@@ -38,14 +38,14 @@ go run ./cmd/kha docs sessions send
   - `httpcodec/`, `jsoncodec/`, `optional/`, `stream/`, `transport/`, `validate/`: Generated runtime helpers (`*.gen.go`).
   - `cli/`: CLI command tree (`commands/`), output formatters (`output/`, `render/`), profile/keychain config (`config/`), tunnel agent (`tunnel/`), and the embedded AI coding assistant skill (`commands/skill/kha/`).
   - `genlayout/`: Generation step that merges the per-tag root files emitted by the generator into the compact `*.gen.go` layout.
-- **`worker/` & `tools/`**: Public packages for the self-hosted environment worker poll/run loop and its sandbox tool executors (`read_file`, `write_file`, `edit_file`, `shell`, `todo_*` from `default_toolset_20260901`; `read`, `write`, `edit`, `bash`, `glob`, `grep` from `default_toolset_20261101`). Keep `IsSandboxTool` in sync with the platform's self-hosted tool list. `kha worker` only wires flags to them. Their exported surface, lease handling, and write-back rules are public API: review every exported change and record it in the CHANGELOG.
+- **`worker/` & `tools/`**: Public packages for the self-hosted environment worker poll/run loop and its sandbox tool executors (`read_file`, `write_file`, `edit_file`, `shell`, `todo_*` from `default_toolset_20260901`; `read`, `write`, `edit`, `bash`, `glob`, `grep` from `default_toolset_20261101`). Their exported surface, lease handling, and write-back rules are public API: review every exported change and record it in the CHANGELOG.
 - **`docs/zh-CN/`**: Simplified Chinese README and CHANGELOG.
 - **`cmd/kha/`**: CLI `main` package.
 - **`deploy/`**: `install.sh`, `install.ps1`, and installer verification tests.
 
 ## Core Engineering Rules
 
-1. **Never edit `*.gen.go` files by hand**: Regenerate them from the OpenAPI contract via the upstream generator instead.
+1. **Never edit `*.gen.go` files by hand**: Regenerate them from the OpenAPI contract via the code generator instead.
 2. **No redundant CRUD wrappers**: Ordinary operations use the generated `Client`, resource groups, request structs, and `HTTPResult[T]` directly. Handwritten helpers extend the generated resource client types in the same package.
 3. **Zero external dependencies in root `kha`**: Keep the root SDK package strictly limited to the Go standard library and internal packages of this module. CLI-only dependencies stay in `internal/cli/` or `cmd/kha/`.
 4. **Two-state vs. three-state optionality**: Use pointers (`*T`, e.g. `new(v)`) for two-state optional fields, and `Optional[T]` (`NewOptional(v)`, `SetNull()`) when omission and explicit `null` have distinct semantics.
@@ -55,9 +55,7 @@ go run ./cmd/kha docs sessions send
    - Write only structured or requested data to `stdout`; all progress notes, spinners, warnings, and errors go to `stderr`.
    - Read secrets from `stdin` or files rather than command-line flags, and strip terminal escape sequences from server-provided messages.
 8. **Language & cleanliness**:
-   - Write all source comments, CLI output, error messages, and test diagnostics in English.
    - Keep non-ASCII literals in tests only when specifically testing Unicode handling or CJK terminal display width.
-   - Never include internal hostnames, private repository paths, or internal issue/proposal numbers in code, comments, tests, docs, or commit messages.
 
 ## Testing & Documentation Checklist
 

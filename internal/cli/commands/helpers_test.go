@@ -25,7 +25,7 @@ func TestFieldFileInputs(t *testing.T) {
 		name, flag, field, method, path string
 		args                            []string
 	}{
-		{"agent_create", "system", "system", "POST", "/v1/agents", []string{"agents", "create", "--name", "demo", "--model", "kimi-k2"}},
+		{"agent_create", "system", "system", "POST", "/v1/agents", []string{"agents", "create", "--name", "demo", "--model", "kimi-k3.1-pro"}},
 		{"agent_update", "system", "system", "PATCH", "/v1/agents/agent_1", []string{"agents", "update", "agent_1", "--version", "7"}},
 		{"session_send", "text", "events", "POST", "/v1/sessions/sess_1/events", []string{"sessions", "send", "sess_1"}},
 		{"trigger_run", "payload", "payload", "POST", "/v1/triggers/trig_1/run", []string{"triggers", "run", "trig_1", "--wait"}},
@@ -106,7 +106,7 @@ func TestFieldFileInputs(t *testing.T) {
 						if cmdCase.name == "trigger_run" || cmdCase.name == "agent_create" || cmdCase.name == "memory_create" {
 							w.WriteHeader(http.StatusCreated)
 						}
-						_, _ = io.WriteString(w, `{"id":"created","event_id":"evt_1","version":"8","status":"completed","model":"kimi-k2"}`)
+						_, _ = io.WriteString(w, `{"id":"created","event_id":"evt_1","version":"8","status":"completed","model":"kimi-k3.1-pro"}`)
 					})
 					args = append(args, "--base-url", srv.URL, "--api-key", "sk-test", "-o", "json")
 					_, stderr, err := runCmd(t, text, args...)

@@ -57,9 +57,9 @@ func (r *editRecorder) body(t *testing.T, i int) map[string]any {
 }
 
 // demoAgent is the stock Agent the edit tests fetch and modify.
-const demoAgent = `{"id":"agent_1","name":"demo","model":"kimi-k2","version":"3","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-02T10:00:00Z","scope":"project"}`
+const demoAgent = `{"id":"agent_1","name":"demo","model":"kimi-k3.1-pro","version":"3","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-02T10:00:00Z","scope":"project"}`
 
-const renamedAgent = `{"id":"agent_1","name":"renamed","model":"kimi-k2","version":"4","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-03T10:00:00Z","scope":"project"}`
+const renamedAgent = `{"id":"agent_1","name":"renamed","model":"kimi-k3.1-pro","version":"4","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-03T10:00:00Z","scope":"project"}`
 
 // serveAgentEdit scripts GET + PATCH /v1/agents/agent_1.
 func serveAgentEdit(t *testing.T, rec *editRecorder, patch func(w http.ResponseWriter, updates int)) *httptest.Server {
@@ -80,7 +80,7 @@ func serveAgentEdit(t *testing.T, rec *editRecorder, patch func(w http.ResponseW
 // optimistic-concurrency check — and the updated Agent prints.
 func TestAgentsEditAppliesChanges(t *testing.T) {
 	isolateEnv(t)
-	fakeEditor(t, `printf 'model: kimi-k2\nname: renamed\nversion: "3"\n' > "$1"`)
+	fakeEditor(t, `printf 'model: kimi-k3.1-pro\nname: renamed\nversion: "3"\n' > "$1"`)
 	rec := &editRecorder{}
 	srv := serveAgentEdit(t, rec, func(w http.ResponseWriter, _ int) {
 		_, _ = fmt.Fprint(w, renamedAgent)
@@ -94,7 +94,7 @@ func TestAgentsEditAppliesChanges(t *testing.T) {
 		t.Fatalf("updates = %d, want 1", rec.updates)
 	}
 	body := rec.body(t, 0)
-	if body["name"] != "renamed" || body["version"] != "3" || body["model"] != "kimi-k2" {
+	if body["name"] != "renamed" || body["version"] != "3" || body["model"] != "kimi-k3.1-pro" {
 		t.Errorf("update body = %v, want the renamed name with the fetched model and version", body)
 	}
 	if len(body) != 3 {

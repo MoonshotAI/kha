@@ -12,7 +12,7 @@ func TestAgentsCreateTransformRawOutput(t *testing.T) {
 	f := &fakeAPI{t: t}
 	srv := serve(t, f.handler().ServeHTTP)
 
-	stdout, _, err := runCmd(t, "", "agents", "create", "--name", "created", "--model", "kimi-k2",
+	stdout, _, err := runCmd(t, "", "agents", "create", "--name", "created", "--model", "kimi-k3.1-pro",
 		"--transform", "id", "-r", "--base-url", srv.URL, "--api-key", "sk-test")
 	if err != nil {
 		t.Fatal(err)
@@ -35,7 +35,7 @@ func TestAgentsListTransformID(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			isolateEnv(t)
 			srv := serve(t, func(w http.ResponseWriter, r *http.Request) {
-				_, _ = fmt.Fprint(w, `{"items":[{"id":"agent_1","name":"first","model":"kimi-k3","version":"1","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-01T10:00:00Z","scope":"project"},{"id":"agent_2","name":"second","model":"kimi-k3","version":"2","created_at":"2026-08-02T10:00:00Z","updated_at":"2026-08-02T10:00:00Z","scope":"project"}],"next_page_token":"tok2"}`)
+				_, _ = fmt.Fprint(w, `{"items":[{"id":"agent_1","name":"first","model":"kimi-k3.1-pro","version":"1","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-01T10:00:00Z","scope":"project"},{"id":"agent_2","name":"second","model":"kimi-k3.1-pro","version":"2","created_at":"2026-08-02T10:00:00Z","updated_at":"2026-08-02T10:00:00Z","scope":"project"}],"next_page_token":"tok2"}`)
 			})
 			args := []string{"agents", "list", "--transform", "id"}
 			args = append(args, tc.args...)

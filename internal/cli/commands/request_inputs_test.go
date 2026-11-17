@@ -256,17 +256,17 @@ func TestStructuredFlagsBuildRequestBodies(t *testing.T) {
 	})
 	t.Run("session_resource_and_override", func(t *testing.T) {
 		structuredFlagCase(t,
-			`{"agent_id":"agent_1","environment_id":"env_1","resources":[{"type":"vault","vault_id":"vlt_1"},{"type":"memory_store","memory_store_id":"mstr_1","access":"read_write"}],"agent_overrides":{"model":"kimi-k3","system":"be terse"},"metadata":{"ticket":"PROJ-42"}}`,
+			`{"agent_id":"agent_1","environment_id":"env_1","resources":[{"type":"vault","vault_id":"vlt_1"},{"type":"memory_store","memory_store_id":"mstr_1","access":"read_write"}],"agent_overrides":{"model":"kimi-k3.1-pro","system":"be terse"},"metadata":{"ticket":"PROJ-42"}}`,
 			"sessions", "create", "--agent", "agent_1", "--environment", "env_1",
 			"--resource", `{type: vault, vault_id: vlt_1}`,
 			"--resource", `{type: memory_store, memory_store_id: mstr_1, access: read_write}`,
-			"--override", `{model: kimi-k3, system: be terse}`,
+			"--override", `{model: kimi-k3.1-pro, system: be terse}`,
 			"--metadata", "ticket=PROJ-42")
 	})
 	t.Run("session_update_override", func(t *testing.T) {
 		structuredFlagCase(t,
-			`{"agent_overrides":{"model":"kimi-k3"}}`,
-			"sessions", "update", "sess_1", "--override", `{model: kimi-k3}`)
+			`{"agent_overrides":{"model":"kimi-k3.1-pro"}}`,
+			"sessions", "update", "sess_1", "--override", `{model: kimi-k3.1-pro}`)
 	})
 	t.Run("session_send_event", func(t *testing.T) {
 		structuredFlagCase(t,
@@ -494,10 +494,10 @@ func TestJSONLListOutput(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		srv := serve(t, func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Query().Get("page_token") == "" {
-				_, _ = io.WriteString(w, `{"items":[{"id":"agent_1","name":"a","model":"kimi-k2","version":"1","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-01T10:00:00Z","scope":"project"}],"next_page_token":"tok"}`)
+				_, _ = io.WriteString(w, `{"items":[{"id":"agent_1","name":"a","model":"kimi-k3.1-pro","version":"1","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-01T10:00:00Z","scope":"project"}],"next_page_token":"tok"}`)
 				return
 			}
-			_, _ = io.WriteString(w, `{"items":[{"id":"agent_2","name":"b","model":"kimi-k2","version":"1","created_at":"2026-08-02T10:00:00Z","updated_at":"2026-08-02T10:00:00Z","scope":"project"}]}`)
+			_, _ = io.WriteString(w, `{"items":[{"id":"agent_2","name":"b","model":"kimi-k3.1-pro","version":"1","created_at":"2026-08-02T10:00:00Z","updated_at":"2026-08-02T10:00:00Z","scope":"project"}]}`)
 		})
 		stdout, _, err := runCmd(t, "", "agents", "list", "--all", "-o", "jsonl", "--base-url", srv.URL, "--api-key", "sk-test")
 		if err != nil {

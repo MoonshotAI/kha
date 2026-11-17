@@ -24,9 +24,9 @@ func completionServer(t *testing.T) *httptest.Server {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/v1/agents":
-			_, _ = io.WriteString(w, `{"items":[{"id":"agent_00000000000000000000000000","name":"demo","model":"kimi-k2","version":"1","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-01T10:00:00Z","scope":"project"}]}`)
+			_, _ = io.WriteString(w, `{"items":[{"id":"agent_00000000000000000000000000","name":"demo","model":"kimi-k3.1-pro","version":"1","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-01T10:00:00Z","scope":"project"}]}`)
 		case "/v1/agents/agent_1/versions":
-			_, _ = io.WriteString(w, `{"items":[{"id":"agent_1","name":"demo","model":"kimi-k2","version":"2","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-02T10:00:00Z","scope":"project"}]}`)
+			_, _ = io.WriteString(w, `{"items":[{"id":"agent_1","name":"demo","model":"kimi-k3.1-pro","version":"2","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-02T10:00:00Z","scope":"project"}]}`)
 		case "/v1/sessions":
 			_, _ = io.WriteString(w, `{"items":[{"id":"sess_00000000000000000000000000","agent_id":"agent_1","environment_id":"env_1","status":"idle","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-01T10:00:00Z"}]}`)
 		case "/v1/sessions/sess_1/resources":

@@ -23,7 +23,7 @@ func TestEditManifestMultilinePreservesContent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			current := &kha.Agent{Model: *kha.NewModelRefString("kimi-k2"), System: new(tt.content)}
+			current := &kha.Agent{Model: *kha.NewModelRefString("kimi-k3.1-pro"), System: new(tt.content)}
 			data, err := editManifest(current, &editSpec[kha.Agent, kha.UpdateAgentRequest]{})
 			if err != nil {
 				t.Fatal(err)
@@ -46,7 +46,7 @@ func TestAgentsEditUnrelatedFieldPreservesMultilineSystem(t *testing.T) {
 	const system = "line one  \nline two\n"
 	srv := serve(t, rec.wrap(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/v1/agents/agent_1" {
-			_, _ = fmt.Fprint(w, `{"id":"agent_1","name":"demo","model":"kimi-k2","version":"3","system":"line one  \nline two\n","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-02T10:00:00Z","scope":"project"}`)
+			_, _ = fmt.Fprint(w, `{"id":"agent_1","name":"demo","model":"kimi-k3.1-pro","version":"3","system":"line one  \nline two\n","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-02T10:00:00Z","scope":"project"}`)
 			return
 		}
 		_, _ = fmt.Fprint(w, renamedAgent)
@@ -107,7 +107,7 @@ func TestEditMultilineUnchangedCancels(t *testing.T) {
 	rec := &editRecorder{}
 	srv := serve(t, rec.wrap(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/v1/agents/agent_1" {
-			_, _ = fmt.Fprint(w, `{"id":"agent_1","name":"demo","model":"kimi-k2","version":"3","system":"line one  \nline two\n","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-02T10:00:00Z","scope":"project"}`)
+			_, _ = fmt.Fprint(w, `{"id":"agent_1","name":"demo","model":"kimi-k3.1-pro","version":"3","system":"line one  \nline two\n","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-02T10:00:00Z","scope":"project"}`)
 			return
 		}
 		_, _ = fmt.Fprint(w, renamedAgent)

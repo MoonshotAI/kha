@@ -14,9 +14,9 @@
 
 </div>
 
-**KHA** is the official Go SDK and command-line client for [Kimi Hosted Agents](https://platform.kimi.com/docs/hosted-agents/overview), a managed Harness-as-a-Service platform for running long-lived, asynchronous AI agent tasks in cloud sandboxes.
+**KHA** is the official Go SDK and command-line client for [Kimi Hosted Agents](https://platform.kimi.com/docs/hosted-agents/overview), a managed platform for running long-lived, asynchronous AI agent tasks in cloud sandboxes.
 
-Whether you are embedding agent workflows into a Go backend, automating tasks from shell scripts and CI pipelines, or giving an AI coding assistant access to remote sandboxes, KHA provides a single, consistent toolkit:
+KHA provides a single, consistent toolkit:
 
 - **Zero-dependency Go SDK** (`github.com/MoonshotAI/kha`): Strongly typed models and resource clients generated from the OpenAPI contract, paired with built-in pagination iterators (`iter.Seq2`), resilient Server-Sent Events (SSE) stream recovery, resource waiters, idempotency-aware retries, and webhook signature verification.
 - **Scriptable CLI** (`kha`): Human-friendly tables in the terminal, byte-exact JSON/YAML for scripts, built-in GJSON field extraction (`--transform`), live event streaming (`attach` and `events --watch`), interactive YAML editing (`edit`), and a bundled skill for AI coding assistants (`kha install-skill`).
@@ -59,7 +59,7 @@ export PATH="$HOME/.local/bin:$PATH"
 kha version
 ```
 
-The installer detects your OS and architecture, verifies the SHA-256 checksum, and places `kha` in `~/.local/bin` by default. Add `~/.local/bin` to your shell profile (`~/.zshrc`, `~/.bashrc`, etc.) so `kha` stays on your `PATH` in new terminals.
+The installer places `kha` in `~/.local/bin` by default. Add it to your shell profile (`~/.zshrc`, `~/.bashrc`, etc.) so `kha` stays on your `PATH` in new terminals.
 
 #### Windows (PowerShell)
 
@@ -120,7 +120,7 @@ export ENVIRONMENT_ID=$(kha environments create \
 
 export AGENT_ID=$(kha agents create \
   --name "Quickstart assistant" \
-  --model kimi-k2.5 \
+  --model kimi-k3.1-pro \
   --system "You are a concise engineering assistant." \
   --transform id -r)
 ```
@@ -258,7 +258,7 @@ Most applications should use `kha.New`, which configures the default endpoint (`
 client, err := kha.New("")
 ```
 
-For full manual control without product defaults, use the generated constructor `kha.NewClient`; see [pkg.go.dev](https://pkg.go.dev/github.com/MoonshotAI/kha) for the option vocabulary. Prefer `context.WithTimeout` on individual requests over a short global `http.Client.Timeout`, which would also cut long-lived SSE streams.
+For full manual control without product defaults, use the generated constructor `kha.NewClient`; see [pkg.go.dev](https://pkg.go.dev/github.com/MoonshotAI/kha) for the option vocabulary.
 
 ### Requests, `HTTPResult[T]`, and Optional Fields
 
@@ -294,7 +294,7 @@ for agent, err := range client.Agents.All(ctx, kha.ListAgentsRequest{}) {
 
 ### Live Event Streaming and Recovery
 
-Choose your event reader based on whether you want a finite snapshot or a live feed:
+
 
 - **Finite history (`Sessions.AllEvents` / `Sessions.AllThreadEvents`)**: Pages through persisted events from oldest to newest and stops at the end of history.
 - **Live SSE stream (`Sessions.Events` / `Sessions.ThreadEvents`)**: Replays retained history by default and stays open to stream new events in real time:
@@ -308,7 +308,7 @@ for event, err := range client.Sessions.Events(ctx, "sesn_...", kha.WithDeltas(t
 }
 ```
 
-The stream handles heartbeats, deduplication, `Last-Event-ID` reconnects, and expired-cursor history backfill automatically; see [pkg.go.dev](https://pkg.go.dev/github.com/MoonshotAI/kha) for the recovery options.
+See [pkg.go.dev](https://pkg.go.dev/github.com/MoonshotAI/kha) for the stream recovery options.
 
 ### Waiting for Asynchronous Work and Retry Safety
 
@@ -381,9 +381,9 @@ Status helpers include `kha.IsInvalidRequest` (`400`), `kha.IsUnauthorized` (`40
 
 ### Tracing and Transport Middleware
 
-The root SDK package has no third-party dependencies, so tracing and response-side middleware plug in through `kha.WithHTTPClient`. Every response carries an `Msh-Request-Id` header (also attached to CLI error output); quote it when reporting a problem.
+Tracing and response-side middleware plug in through `kha.WithHTTPClient`. Every response carries an `Msh-Request-Id` header (also attached to CLI error output); quote it when reporting a problem.
 
-To join your traces with platform logs, wrap the transport with [`otelhttp`](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp). The platform reads the propagated `traceparent` header and returns its trace ID as `Msh-Request-Id`:
+To join your traces with platform logs, wrap the transport with [`otelhttp`](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp):
 
 ```go
 import "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -468,7 +468,7 @@ kha sessions get sesn_invalid --error-output json
 Create and update commands take scalar flags (`--name`, `--model`, `--system-file`) plus **structured flags** for the request's object and array fields. Structured flag values accept relaxed YAML (`{name: x}`) and strict JSON interchangeably, and repeatable flags append one array element per occurrence:
 
 ```sh
-kha agents create --name analyst --model kimi-k3 \
+kha agents create --name analyst --model kimi-k3.1-pro \
   --tool '{type: custom, name: search, description: web search, input_schema: {type: object}}' \
   --mcp-server '{name: github, url: https://mcp.example}' \
   --skill "sk_xxx@2" \
@@ -476,7 +476,7 @@ kha agents create --name analyst --model kimi-k3 \
 
 kha sessions create --agent "$AGENT_ID" --environment "$ENVIRONMENT_ID" \
   --resource '{type: vault, vault_id: vlt_xxx}' \
-  --override '{model: kimi-k3}'
+  --override '{model: kimi-k3.1-pro}'
 
 kha environments create --name analysis \
   --networking limited --allow-host example.com \
@@ -538,7 +538,7 @@ The Kimi Hosted Agents REST API is versioned independently via the `Kimi-Api-Ver
 
 Contributions, bug reports, and feature requests are welcome!
 
-- **Contribute code or docs**: Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for local build/test commands, repository structure, and how pull requests are integrated. The repository is completely self-contained—only Go 1.27+ is needed to build and run the test suite.
+- **Contribute code or docs**: Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for local build/test commands, repository structure, and how pull requests are integrated. Generated code is checked in—only Go 1.27+ is needed to build and run the test suite.
 - **Report issues**: Open a [GitHub Issue](https://github.com/MoonshotAI/kha/issues) with your `kha version` output, a minimal reproduction (CLI command or Go snippet), and the `Msh-Request-Id` response header if applicable. Please redact API Keys, tokens, and sensitive payloads before posting.
 
 ## License

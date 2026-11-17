@@ -166,7 +166,7 @@ func newSessionsCreateCmd(g *globalFlags) *cobra.Command {
 	}{"resource", &resources})
 	bindings := addResourceBindingFlags(cmd)
 	var overrides kha.SessionAgentOverrides
-	cmd.Flags().Var(&yamlValue{flag: "override", target: &overrides}, "override", "session-local agent overrides as a JSON or YAML object, e.g. '{model: kimi-k3, system: \"...\"}'")
+	cmd.Flags().Var(&yamlValue{flag: "override", target: &overrides}, "override", "session-local agent overrides as a JSON or YAML object, e.g. '{model: kimi-k3.1-pro, system: \"...\"}'")
 	metadata := addKVFlag(cmd, "metadata", "key=value metadata entry (repeatable; up to 16)")
 	body := addBodyFlag(cmd, "agent", "agent-version", "title", "environment", "resource", "override", "metadata", "vault", "memory-store", "file-id", "repo", "repo-token", "repo-token-stdin")
 	cmd.RunE = run(func(cmd *cobra.Command, args []string) error {
@@ -225,7 +225,7 @@ func newSessionsUpdateCmd(g *globalFlags) *cobra.Command {
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: sessionIDCompletion,
 		Example: `  kha sessions update sess_xxx --title "renamed"
-  kha sessions update sess_xxx --override '{model: kimi-k3}'`,
+  kha sessions update sess_xxx --override '{model: kimi-k3.1-pro}'`,
 	}
 	var title string
 	cmd.Flags().StringVar(&title, "title", "", "new title")

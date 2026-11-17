@@ -69,10 +69,10 @@ func (f *fakeAPI) handler() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/agents":
-			_, _ = fmt.Fprint(w, `{"items":[{"id":"agent_1","name":"demo","model":"kimi-k2","version":"3","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-02T10:00:00Z","scope":"project"}]}`)
+			_, _ = fmt.Fprint(w, `{"items":[{"id":"agent_1","name":"demo","model":"kimi-k3.1-pro","version":"3","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-02T10:00:00Z","scope":"project"}]}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/agents":
 			w.WriteHeader(http.StatusCreated)
-			_, _ = fmt.Fprint(w, `{"id":"agent_9","name":"created","model":"kimi-k2","version":"1","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-01T10:00:00Z","scope":"project"}`)
+			_, _ = fmt.Fprint(w, `{"id":"agent_9","name":"created","model":"kimi-k3.1-pro","version":"1","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-01T10:00:00Z","scope":"project"}`)
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/sessions/sess_1":
 			_, _ = fmt.Fprint(w, `{"id":"sess_1","agent_id":"agent_1","environment_id":"env_1","status":"idle","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-01T10:00:00Z"}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/sessions/sess_1/events":
@@ -129,7 +129,7 @@ func TestAgentsListTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"ID", "NAME", "VERSION", "MODEL", "agent_1", "demo", "kimi-k2"} {
+	for _, want := range []string{"ID", "NAME", "VERSION", "MODEL", "agent_1", "demo", "kimi-k3.1-pro"} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("stdout missing %q:\n%s", want, stdout)
 		}
@@ -166,13 +166,13 @@ func TestAgentsCreateWithFlags(t *testing.T) {
 	srv := httptest.NewServer(f.handler())
 	defer srv.Close()
 
-	_, _, err := runCmd(t, "", "agents", "create", "--name", "created", "--model", "kimi-k2",
+	_, _, err := runCmd(t, "", "agents", "create", "--name", "created", "--model", "kimi-k3.1-pro",
 		"--base-url", srv.URL, "--api-key", "sk-test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	body := string(f.lastBody)
-	if !strings.Contains(body, `"name":"created"`) || !strings.Contains(body, `"model":"kimi-k2"`) {
+	if !strings.Contains(body, `"name":"created"`) || !strings.Contains(body, `"model":"kimi-k3.1-pro"`) {
 		t.Fatalf("create body = %s", body)
 	}
 }
@@ -183,7 +183,7 @@ func TestAgentsCreateFromStdinFile(t *testing.T) {
 	srv := httptest.NewServer(f.handler())
 	defer srv.Close()
 
-	stdin := `{"name":"from-file","model":"kimi-k2","description":"d"}`
+	stdin := `{"name":"from-file","model":"kimi-k3.1-pro","description":"d"}`
 	_, _, err := runCmd(t, stdin, "agents", "create", "--file", "-", "--base-url", srv.URL, "--api-key", "sk-test")
 	if err != nil {
 		t.Fatal(err)
@@ -993,7 +993,7 @@ func TestAgentsListYAML(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"items:", "id: agent_1", "name: demo", "model: kimi-k2"} {
+	for _, want := range []string{"items:", "id: agent_1", "name: demo", "model: kimi-k3.1-pro"} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("yaml output missing %q:\n%s", want, stdout)
 		}

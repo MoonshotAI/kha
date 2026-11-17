@@ -30,7 +30,7 @@ Without a key flag, paste the key at the hidden prompt. An empty key
 (Enter at the prompt, or --api-key '') saves the profile without a
 credential for anonymous access; --api-key-stdin requires a non-empty key.`,
 		Example: `  kha login
-  kha login --profile staging --base-url https://staging.internal
+  kha login --profile staging --base-url https://api-staging.example.com
   kha login --api-key-stdin`,
 		Args: cobra.NoArgs,
 		RunE: run(func(cmd *cobra.Command, args []string) error {

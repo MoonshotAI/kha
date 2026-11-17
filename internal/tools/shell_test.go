@@ -120,11 +120,11 @@ func TestShellCtxCancel(t *testing.T) {
 
 func TestShellEnvScrubbed(t *testing.T) {
 	skipOnWindows(t)
-	t.Setenv("LOOPY_WORK_SECRET", "topsecret-value")
+	t.Setenv("KHA_WORK_SECRET", "topsecret-value")
 	t.Setenv("KHA_SESSION_TOKEN", "session-value")
 	t.Setenv("KHA_TOOLS_TEST_VISIBLE", "visible-value")
 	res, err := NewExecutor(0).Execute(context.Background(), mustCall(toolShell,
-		`{"command":"echo \"secret=[$LOOPY_WORK_SECRET] token=[$KHA_SESSION_TOKEN] visible=[$KHA_TOOLS_TEST_VISIBLE]\""}`))
+		`{"command":"echo \"secret=[$KHA_WORK_SECRET] token=[$KHA_SESSION_TOKEN] visible=[$KHA_TOOLS_TEST_VISIBLE]\""}`))
 	if err != nil {
 		t.Fatal(err)
 	}

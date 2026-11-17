@@ -6,7 +6,7 @@ To create an Agent, write `agent.yaml` (replace `model`, `tools`, `mcp_servers`,
 
 ```yaml
 name: CSV analyst
-model: kimi-k3
+model: kimi-k3.1-pro
 system: |
   Analyze the files supplied in the Session and explain any missing inputs.
   Save requested reports as Artifacts and mention their filenames in your reply.
@@ -73,7 +73,7 @@ Use scalar flags for basic settings or `--file` for nested JSON/YAML configurati
 - **Update semantics**: Omitted fields stay unchanged. Arrays and `metadata` replace whole collections when present (`[]` and `{}` clear them; `{multiagent: {agents: []}}` clears the roster). Do not resubmit raw `agents get` output wholesale—construct update payloads from writable fields plus `version`.
 - **Repeatable binding flags**:
   ```sh
-  kha agents create --name analyst --model kimi-k3 --system-file system.md \
+  kha agents create --name analyst --model kimi-k3.1-pro --system-file system.md \
     --skill "$SKILL_ID" --plugin "$PLUGIN_ID" -o json
   kha agents update "$AGENT_ID" --version "$VERSION" \
     --skill "$FIRST_SKILL_ID" --skill "$SECOND_SKILL_ID" -o json
@@ -91,7 +91,7 @@ Use scalar flags for basic settings or `--file` for nested JSON/YAML configurati
 ```yaml
 name: Research analyst
 model:
-  id: kimi-k3
+  id: kimi-k3.1-pro
   reasoning_effort: high
 system: Cite primary sources and save the final report as an Artifact.
 tools:

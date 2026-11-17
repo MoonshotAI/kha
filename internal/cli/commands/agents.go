@@ -116,14 +116,14 @@ func newAgentsCreateCmd(g *globalFlags) *cobra.Command {
 		Use:   "create",
 		Short: "Create an Agent and its first immutable version",
 		Args:  cobra.NoArgs,
-		Example: `  kha agents create --name researcher --model kimi-k3 --description "web research"
-  kha agents create --name analyst --model kimi-k3 --system-file system.md
-  kha agents create --name bot --model kimi-k3 --tool '{type: custom, name: search, description: web search, input_schema: {type: object}}' --skill sk_xxx@2
+		Example: `  kha agents create --name researcher --model kimi-k3.1-pro --description "web research"
+  kha agents create --name analyst --model kimi-k3.1-pro --system-file system.md
+  kha agents create --name bot --model kimi-k3.1-pro --tool '{type: custom, name: search, description: web search, input_schema: {type: object}}' --skill sk_xxx@2
   cat agent.json | kha agents create --file -`,
 	}
 	var name, model, description string
 	cmd.Flags().StringVarP(&name, "name", "n", "", "display name of the Agent")
-	cmd.Flags().StringVarP(&model, "model", "m", "", "model id, e.g. kimi-k3")
+	cmd.Flags().StringVarP(&model, "model", "m", "", "model id, e.g. kimi-k3.1-pro")
 	cmd.Flags().StringVarP(&description, "description", "d", "", "description of the Agent")
 	system := addTextFlags(cmd, "system", "system prompt")
 	var tools []*kha.Tool

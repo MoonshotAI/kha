@@ -216,7 +216,7 @@ func TestListResponsesRetainItemsAndMetadata(t *testing.T) {
 				}
 				w.Header().Set("Content-Type", "application/json")
 				w.Header().Set("Msh-Request-Id", "req-list")
-				item := `{"id":"row","model":"kimi-k2","config":{"type":"cloud"},"policy":{"type":"cron"},"auth":{"type":"static_bearer","mcp_server_url":"https://example.com"}}`
+				item := `{"id":"row","model":"kimi-k3.1-pro","config":{"type":"cloud"},"policy":{"type":"cron"},"auth":{"type":"static_bearer","mcp_server_url":"https://example.com"}}`
 				if strings.Contains(tc.name, "events") {
 					item = eventsUserMessageE1
 				}

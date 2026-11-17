@@ -15,9 +15,9 @@
 </div>
 
 **KHA** 是 [Kimi Hosted Agents](https://platform.kimi.com/docs/hosted-agents/overview) 的官方 Go SDK 与命令行工具（CLI）。
-Kimi Hosted Agents 是面向长程与异步任务的托管 Harness 服务（Harness as a Service），让你在云端沙箱中可靠地运行、观测和恢复 AI Agent 任务。
+Kimi Hosted Agents 是面向长程与异步任务的托管平台，让你在云端沙箱中可靠地运行、观测和恢复 AI Agent 任务。
 
-无论你是在 Go 后端服务中集成 Agent 工作流、在 Shell 脚本和 CI 流水线中自动化执行任务，还是让 AI 编程助手操作远端沙箱，KHA 都提供了一致的开发体验：
+KHA 提供一致的开发体验：
 
 - **零第三方依赖的 Go SDK**（`github.com/MoonshotAI/kha`）：基于公共 OpenAPI 契约生成强类型模型与资源客户端，并内置 `iter.Seq2` 分页迭代器、SSE 事件流断线重连与过期 cursor 回补、异步资源等待器（Waiter）、感知幂等性的重试策略以及 Webhook 签名校验。
 - **可脚本化的 CLI**（`kha`）：终端默认输出易读的表格，脚本下支持精确的 JSON/YAML 输出、基于 GJSON 的字段提取（`--transform`）、实时事件流跟踪（`attach` 与 `events --watch`）、交互式 YAML 编辑（`edit`），以及供 AI 编程助手直接调用的内置技能包（`kha install-skill`）。
@@ -33,7 +33,6 @@ Kimi Hosted Agents 是面向长程与异步任务的托管 Harness 服务（Harn
 3. **Session**（`sesn_...`）：一次有状态、持久化的「会话与工作区」，将一个 **Agent** 与一个 **Environment** 绑定在一起，并可挂载上传的 **File**、保存凭据的 **Vault** 以及共享的 **Memory Store**；任务按轮次（turn）在云端运行，即使本地客户端断开连接也不会中断。
 4. **Events 与 Artifacts**：用户输入、模型思考、工具调用、Agent 回复以及状态切换都会追加写入 Session 的 **Event** 日志；Agent 生成的交付文件则可以发布为带版本的 **Artifact**（`art_...`），或保存在 Session 文件系统中供随时下载。
 
-> **说明**：KHA 是托管平台的客户端，不是本地 Agent 运行时；模型推理、沙箱编排、Session 状态持久化以及平台侧故障恢复均在 Kimi Hosted Agents 云端执行。
 
 ---
 
@@ -60,7 +59,7 @@ export PATH="$HOME/.local/bin:$PATH"
 kha version
 ```
 
-安装脚本会自动识别操作系统与 CPU 架构、校验 SHA-256 摘要，并默认将 `kha` 安装到 `~/.local/bin`。
+安装脚本默认将 `kha` 安装到 `~/.local/bin`。
 请将 `~/.local/bin` 添加到你的 shell 配置文件（如 `~/.zshrc` 或 `~/.bashrc`），以便在新打开的终端中直接使用 `kha`。
 
 #### Windows (PowerShell)
@@ -123,7 +122,7 @@ export ENVIRONMENT_ID=$(kha environments create \
 
 export AGENT_ID=$(kha agents create \
   --name "Quickstart assistant" \
-  --model kimi-k2.5 \
+  --model kimi-k3.1-pro \
   --system "你是一位简洁清晰的工程助手。" \
   --transform id -r)
 ```
@@ -255,7 +254,7 @@ func main() {
 
 ### 初始化客户端
 
-绝大多数应用推荐使用 `kha.New`，它会自动配置生产环境地址（`https://api.moonshot.cn`）、`Kimi-Api-Version` 请求头（`kha.DefaultAPIVersion`）、Bearer 认证以及产品级重试策略：
+`kha.New` 自动配置生产环境地址（`https://api.moonshot.cn`）、`Kimi-Api-Version` 请求头（`kha.DefaultAPIVersion`）、Bearer 认证以及产品级重试策略：
 
 ```go
 // apiKey 传空字符串时自动读取环境变量 KIMI_API_KEY。
@@ -399,9 +398,9 @@ if err != nil {
 
 ### 链路追踪与传输层中间件
 
-根 SDK package 不引入第三方依赖，链路追踪和响应侧中间件都通过 `kha.WithHTTPClient` 接入。每个响应都带有 `Msh-Request-Id` 响应头（CLI 的错误输出也会附带），反馈问题时请提供它。
+链路追踪和响应侧中间件通过 `kha.WithHTTPClient` 接入。每个响应都带有 `Msh-Request-Id` 响应头（CLI 的错误输出也会附带），反馈问题时请提供它。
 
-如果希望调用方的 trace 与平台日志对上，可以用 [`otelhttp`](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp) 包装 transport。平台会读取传播过来的 `traceparent` 请求头，并把其中的 trace ID 作为 `Msh-Request-Id` 返回：
+如果希望调用方的 trace 与平台日志对上，可以用 [`otelhttp`](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp) 包装 transport：
 
 ```go
 import "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -506,7 +505,7 @@ kha sessions get sesn_invalid --error-output json
 `create` 与 `update` 命令既接受标量参数（如 `--name`、`--model`、`--system-file`），也为请求体中的对象与数组字段提供**结构化参数**。结构化参数的值同时接受宽松 YAML（`{name: x}`）与严格 JSON；可重复参数每出现一次向数组追加一个元素：
 
 ```sh
-kha agents create --name analyst --model kimi-k3 \
+kha agents create --name analyst --model kimi-k3.1-pro \
   --tool '{type: custom, name: search, description: web search, input_schema: {type: object}}' \
   --mcp-server '{name: github, url: https://mcp.example}' \
   --skill "sk_xxx@2" \
@@ -514,7 +513,7 @@ kha agents create --name analyst --model kimi-k3 \
 
 kha sessions create --agent "$AGENT_ID" --environment "$ENVIRONMENT_ID" \
   --resource '{type: vault, vault_id: vlt_xxx}' \
-  --override '{model: kimi-k3}'
+  --override '{model: kimi-k3.1-pro}'
 
 kha environments create --name analysis \
   --networking limited --allow-host example.com \
@@ -594,7 +593,7 @@ Kimi Hosted Agents 服务端 REST API 通过 `Kimi-Api-Version` 请求头独立�
 
 欢迎提交代码改进、文档修订、Bug 报告或功能建议！
 
-- **参与开发**：请阅读 [`CONTRIBUTING.md`](../../CONTRIBUTING.md) 了解构建、测试、代码检查与 Pull Request 合入流程；本仓库完全自包含，生成代码已直接签入仓库，只需安装 Go 1.27+ 即可在本地编译并运行全部测试。
+- **参与开发**：请阅读 [`CONTRIBUTING.md`](../../CONTRIBUTING.md) 了解构建、测试、代码检查与 Pull Request 合入流程；生成代码已直接签入仓库，只需安装 Go 1.27+ 即可在本地编译并运行全部测试。
 - **反馈问题**：请通过 [GitHub Issues](https://github.com/MoonshotAI/kha/issues) 提交问题，并附上 `kha version` 输出、最小复现命令或 Go 代码片段，以及响应头中的 `Msh-Request-Id`（如有）；提交前请务必隐去 API Key、Token、私有资源信息及敏感事件内容。
 
 ## 许可证

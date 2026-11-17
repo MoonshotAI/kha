@@ -14,7 +14,7 @@ Describe what this pull request changes and why it is needed.
 - [ ] Updated `CHANGELOG.md` (`## [Unreleased]`) for user-visible SDK, CLI, skill, or documentation changes
 - [ ] Updated `README.md`, `docs/zh-CN/README.md`, `example_test.go`, or embedded skill docs if public signatures or CLI flags changed
 - [ ] Rebased on the latest `main` with passing CI
-- [ ] I understand that accepted PRs are synced through the upstream development repository and closed on GitHub once merged upstream, with full contributor attribution in `CHANGELOG.md` and the next GitHub Release
+- [ ] I understand that accepted PRs are integrated into the development repository and closed on GitHub once merged, with full contributor attribution in `CHANGELOG.md` and the next GitHub Release
 
 ## Release Attribution
 

@@ -56,7 +56,7 @@ func TestProtectedWriteReplayAndRetryAfter(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		result, err := client.Agents.Create(t.Context(), CreateAgentHTTPRequest{IdempotencyKey: new("caller-key"), Body: &CreateAgentRequest{Name: "helper", Model: *NewModelRefString("kimi-k2")}})
+		result, err := client.Agents.Create(t.Context(), CreateAgentHTTPRequest{IdempotencyKey: new("caller-key"), Body: &CreateAgentRequest{Name: "helper", Model: *NewModelRefString("kimi-k3.1-pro")}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -451,7 +451,7 @@ func TestCreateWithoutIdempotencyKeyDoesNotRetry(t *testing.T) {
 		}))
 		t.Cleanup(server.Close)
 		client := newTestClient(t, server)
-		_, err := client.Agents.Create(t.Context(), CreateAgentHTTPRequest{Body: &CreateAgentRequest{Name: "helper", Model: *NewModelRefString("kimi-k2")}})
+		_, err := client.Agents.Create(t.Context(), CreateAgentHTTPRequest{Body: &CreateAgentRequest{Name: "helper", Model: *NewModelRefString("kimi-k3.1-pro")}})
 		if err == nil || len(keys) != 1 || keys[0] != "" {
 			t.Fatalf("keys=%v error=%v; want one request without an idempotency key", keys, err)
 		}
@@ -460,9 +460,9 @@ func TestCreateWithoutIdempotencyKeyDoesNotRetry(t *testing.T) {
 
 const inFlightConflictBody = `{"error":{"type":"conflict_error","message":"A request with the same Idempotency-Key is still in flight; retry shortly."}}`
 
-// After a transient failure, Hex may still hold the in-flight marker for the
-// same Idempotency-Key. Retry attempts must keep backing off on that 409 until
-// the stored response is ready to replay.
+// After a transient failure, the server may still hold the in-flight marker
+// for the same Idempotency-Key. Retry attempts must keep backing off on that
+// 409 until the stored response is ready to replay.
 func TestProtectedWriteRetriesInFlightConflict(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var attempts []time.Time
@@ -484,7 +484,7 @@ func TestProtectedWriteRetriesInFlightConflict(t *testing.T) {
 			}
 		}))
 		client := newTestClient(t, server)
-		result, err := client.Agents.Create(t.Context(), CreateAgentHTTPRequest{IdempotencyKey: new("in-flight-key"), Body: &CreateAgentRequest{Name: "helper", Model: *NewModelRefString("kimi-k2")}})
+		result, err := client.Agents.Create(t.Context(), CreateAgentHTTPRequest{IdempotencyKey: new("in-flight-key"), Body: &CreateAgentRequest{Name: "helper", Model: *NewModelRefString("kimi-k3.1-pro")}})
 		if err != nil || result.StatusCode != http.StatusCreated || len(attempts) != 3 {
 			t.Fatalf("result=%+v attempts=%d error=%v", result, len(attempts), err)
 		}
@@ -510,7 +510,7 @@ func TestProtectedWriteDoesNotRetryFirstAttemptConflict(t *testing.T) {
 			_, _ = io.WriteString(w, `{"error":{"type":"conflict_error","message":"The Idempotency-Key was already used with a different request target, API version, or body."}}`)
 		}))
 		client := newTestClient(t, server)
-		result, err := client.Agents.Create(t.Context(), CreateAgentHTTPRequest{IdempotencyKey: new("conflict-key"), Body: &CreateAgentRequest{Name: "helper", Model: *NewModelRefString("kimi-k2")}})
+		result, err := client.Agents.Create(t.Context(), CreateAgentHTTPRequest{IdempotencyKey: new("conflict-key"), Body: &CreateAgentRequest{Name: "helper", Model: *NewModelRefString("kimi-k3.1-pro")}})
 		if !IsConflict(err) || result.StatusCode != http.StatusConflict || calls != 1 {
 			t.Fatalf("result=%+v calls=%d error=%v", result, calls, err)
 		}
@@ -547,7 +547,7 @@ func TestProductOperationErrors(t *testing.T) {
 		call   func(*testing.T, *Client) (int, http.Header, error)
 	}{
 		{"bad request", http.StatusBadRequest, func(t *testing.T, c *Client) (int, http.Header, error) {
-			r, err := c.Agents.Create(t.Context(), CreateAgentHTTPRequest{Body: &CreateAgentRequest{Name: "helper", Model: *NewModelRefString("kimi-k2")}})
+			r, err := c.Agents.Create(t.Context(), CreateAgentHTTPRequest{Body: &CreateAgentRequest{Name: "helper", Model: *NewModelRefString("kimi-k3.1-pro")}})
 			return r.StatusCode, r.Header, err
 		}},
 		{"not found", http.StatusNotFound, func(t *testing.T, c *Client) (int, http.Header, error) {
@@ -555,7 +555,7 @@ func TestProductOperationErrors(t *testing.T) {
 			return r.StatusCode, r.Header, err
 		}},
 		{"conflict", http.StatusConflict, func(t *testing.T, c *Client) (int, http.Header, error) {
-			r, err := c.Agents.Create(t.Context(), CreateAgentHTTPRequest{Body: &CreateAgentRequest{Name: "helper", Model: *NewModelRefString("kimi-k2")}})
+			r, err := c.Agents.Create(t.Context(), CreateAgentHTTPRequest{Body: &CreateAgentRequest{Name: "helper", Model: *NewModelRefString("kimi-k3.1-pro")}})
 			return r.StatusCode, r.Header, err
 		}},
 		{"OAuth conflict", http.StatusConflict, func(t *testing.T, c *Client) (int, http.Header, error) {

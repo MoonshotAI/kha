@@ -126,10 +126,10 @@ func protectedWrite(method, path string) bool {
 
 // retryResponse decides whether another attempt is warranted.
 // Protected writes retry 409 only after the first attempt already failed:
-// Hex's idempotency middleware returns 409 while the original request is still
-// in flight, then replays the stored response once it completes. A 409 on the
-// first attempt is a real conflict (mismatched fingerprint or business rule)
-// and must surface immediately.
+// the server's idempotency middleware returns 409 while the original request
+// is still in flight, then replays the stored response once it completes. A
+// 409 on the first attempt is a real conflict (mismatched fingerprint or
+// business rule) and must surface immediately.
 func retryResponse(resp *http.Response, err error, protected bool, attempt int) bool {
 	if err != nil {
 		return true

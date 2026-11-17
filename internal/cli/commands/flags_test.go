@@ -113,12 +113,12 @@ func TestShorthandFlags(t *testing.T) {
 	srv = serve(t, rec.wrap(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && r.URL.Path == "/v1/agents" {
 			w.WriteHeader(http.StatusCreated)
-			_, _ = fmt.Fprint(w, `{"id":"agent_9","name":"from-file","model":"kimi-k2","version":"1","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-01T10:00:00Z","scope":"project"}`)
+			_, _ = fmt.Fprint(w, `{"id":"agent_9","name":"from-file","model":"kimi-k3.1-pro","version":"1","created_at":"2026-08-01T10:00:00Z","updated_at":"2026-08-01T10:00:00Z","scope":"project"}`)
 			return
 		}
 		http.NotFound(w, r)
 	}))
-	if _, _, err := runCmd(t, `{"name":"from-file","model":"kimi-k2"}`, "agents", "create", "-f", "-", "--base-url", srv.URL, "--api-key", "sk-test"); err != nil {
+	if _, _, err := runCmd(t, `{"name":"from-file","model":"kimi-k3.1-pro"}`, "agents", "create", "-f", "-", "--base-url", srv.URL, "--api-key", "sk-test"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(rec.body, `"name":"from-file"`) {
@@ -126,11 +126,11 @@ func TestShorthandFlags(t *testing.T) {
 	}
 
 	// -n/-m/-d set the Agent fields like --name/--model/--description.
-	if _, _, err := runCmd(t, "", "agents", "create", "-n", "created", "-m", "kimi-k2", "-d", "desc",
+	if _, _, err := runCmd(t, "", "agents", "create", "-n", "created", "-m", "kimi-k3.1-pro", "-d", "desc",
 		"--base-url", srv.URL, "--api-key", "sk-test"); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`"name":"created"`, `"model":"kimi-k2"`, `"description":"desc"`} {
+	for _, want := range []string{`"name":"created"`, `"model":"kimi-k3.1-pro"`, `"description":"desc"`} {
 		if !strings.Contains(rec.body, want) {
 			t.Errorf("agents create shorthand body missing %s: %s", want, rec.body)
 		}
@@ -341,7 +341,7 @@ func TestDynamicFlagCompletionCandidates(t *testing.T) {
 			t.Fatal(err)
 		}
 		got, directive := fn(cmd, nil, "")
-		if directive != cobra.ShellCompDirectiveNoFileComp || strings.Join(got, "\n") != `2	demo (kimi-k2)` {
+		if directive != cobra.ShellCompDirectiveNoFileComp || strings.Join(got, "\n") != `2	demo (kimi-k3.1-pro)` {
 			t.Errorf("%s --agent-version: candidates = %v, directive = %v", path, got, directive)
 		}
 	}
